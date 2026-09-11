@@ -1,14 +1,15 @@
-# Duo Fold Wallpaper (Android Transition Animations)
+# Duo Fold Wallpaper
 
-[![Android CI](https://github.com/DJ-vekariya/android_transition_animations-/actions/workflows/build.yml/badge.svg)](https://github.com/DJ-vekariya/android_transition_animations-/actions/workflows/build.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![API](https://img.shields.io/badge/API-33%2B-brightgreen.svg?style=flat)](https://android-arsenal.com/api?level=33)
+[![Build](https://github.com/DJ-vekariya/android_transition_animations-/actions/workflows/build.yml/badge.svg)](https://github.com/DJ-vekariya/android_transition_animations-/actions)
+[![Release](https://img.shields.io/github/v/release/DJ-vekariya/android_transition_animations-)](https://github.com/DJ-vekariya/android_transition_animations-/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![minSdk](https://img.shields.io/badge/minSdk-33-3DDC84)](https://android-arsenal.com/api?level=33)
 [![Target](https://img.shields.io/badge/Foldable-Ready-purple.svg)](https://developer.android.com/guide/topics/ui/foldables)
-[![Live Showcase](https://img.shields.io/badge/Interactive_Showcase-GitHub_Pages-orange.svg)](https://dj-vekariya.github.io/android_transition_animations-/)
+[![Live Showcase](https://img.shields.io/badge/showcase-0°–180°-blue)](https://dj-vekariya.github.io/android_transition_animations-/)
 
 > **"Apple spent 7 years and $1,999 on this fold animation. I put it on Android as an open-source live wallpaper."**
 
-An open-source Android live wallpaper that ports the viral **iPhone Duo fold-transition effect** (hinge-anchored ray-plane perspective compression, progressive progressive blur, and cover-display window projection) to Android foldables (Google Pixel Fold / 9 Pro Fold / 10 Pro Fold, Samsung Galaxy Z Fold series, and more).
+An open-source Android live wallpaper that ports the viral **iPhone Duo fold-transition effect** (hinge-anchored ray-plane perspective compression, progressive blur, and cover-display window projection) to Android foldables (Google Pixel Fold / 9 Pro Fold / 10 Pro Fold, Samsung Galaxy Z Fold series, and more).
 
 Powered by `Sensor.TYPE_HINGE_ANGLE` and a hardware-accelerated **AGSL (Android Graphics Shading Language) `RuntimeShader`**.
 
@@ -18,9 +19,9 @@ Powered by `Sensor.TYPE_HINGE_ANGLE` and a hardware-accelerated **AGSL (Android 
 
 Don't have a foldable nearby? Scrub through the fold transition in your browser with our interactive 0°→180° viewer:
 
-👉 **[Launch Interactive 0° to 180° Angle Showcase](https://dj-vekariya.github.io/android_transition_animations-/)**
+### [👉 Launch Interactive 0° to 180° Angle Showcase](https://dj-vekariya.github.io/android_transition_animations-/)
 
-*(Also available locally in [`docs/index.html`](./docs/index.html) or [`DuoFold_Showcase.html`](./DuoFold_Showcase.html)).*
+*(Also available locally in [`docs/index.html`](docs/index.html) or [`DuoFold_Showcase.html`](DuoFold_Showcase.html)).*
 
 ---
 
@@ -28,7 +29,7 @@ Don't have a foldable nearby? Scrub through the fold transition in your browser 
 
 | 0° — Cover Screen Window | 90° — Tabletop Compression & Blur | 180° — Flat Unfolded Landscape |
 |:---:|:---:|:---:|
-| <img src="./docs/screenshots/angle_0deg.png" width="260" alt="0 Degrees Cover Display" /> | <img src="./docs/screenshots/angle_90deg.png" width="260" alt="90 Degrees Tabletop Seam" /> | <img src="./docs/screenshots/angle_180deg.png" width="260" alt="180 Degrees Flat Display" /> |
+| ![0 Degrees Cover Display](docs/screenshots/angle_0deg.png) | ![90 Degrees Tabletop Seam](docs/screenshots/angle_90deg.png) | ![180 Degrees Flat Display](docs/screenshots/angle_180deg.png) |
 | *Outer screen acts as a "window" anchored at the fold.* | *Left panel recedes with ray-plane warp & 25-tap blur.* | *Seamless, crystal-clear 1:1 wallpaper alignment.* |
 
 ---
@@ -97,7 +98,10 @@ D DuoWallpaperService: Engine bound to displayId=1 outer=true
 - JDK 17
 - Android SDK 35 (Minimum API 33 required for AGSL `RuntimeShader`)
 
-### Compile and Sideload
+### Pre-Built APK
+Download the latest APK from [Releases](https://github.com/DJ-vekariya/android_transition_animations-/releases) and sideload directly to your device.
+
+### Compile from Source
 ```bash
 # Clone the repository
 git clone https://github.com/DJ-vekariya/android_transition_animations-.git
@@ -137,7 +141,7 @@ adb emu sensor set hinge-angle0 0
 ## 📂 Repository Structure
 
 ```
-android_transition_animations-/
+DuoFoldWallpaper/
 ├── app/
 │   ├── src/main/java/com/example/duofoldwallpaper/
 │   │   ├── DeviceConfig.kt         # Hardware geometry & display detection
@@ -166,9 +170,9 @@ android_transition_animations-/
 ## 🤝 Contributing
 
 Contributions are warmly welcome! Whether you want to calibrate device ratios, optimize the AGSL kernel, or add Z Flip clamshell orientation:
-- Check out [`CONTRIBUTING.md`](./CONTRIBUTING.md) for guidelines.
-- Pick a starter task from [`docs/SEED_ISSUES.md`](./docs/SEED_ISSUES.md).
-- See what's coming up in [`ROADMAP.md`](./ROADMAP.md).
+- Check out [`CONTRIBUTING.md`](CONTRIBUTING.md) for guidelines.
+- Pick a starter task from [`docs/SEED_ISSUES.md`](docs/SEED_ISSUES.md).
+- See what's coming up in [`ROADMAP.md`](ROADMAP.md).
 
 ---
 
@@ -178,4 +182,4 @@ Contributions are warmly welcome! Whether you want to calibrate device ratios, o
 ---
 
 ## 📄 License
-This project is licensed under the [MIT License](./LICENSE) © 2026 Dev Vekariya.
+This project is licensed under the [MIT License](LICENSE) © 2026 Dev Vekariya.
