@@ -1,5 +1,6 @@
 package com.example.duofoldwallpaper
 
+import android.content.SharedPreferences
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.BitmapShader
@@ -17,79 +18,69 @@ import android.util.Log
 import android.view.Choreographer
 import android.view.Display
 import android.view.SurfaceHolder
+import java.io.File
 import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.min
 
 /**
- * Live wallpaper that reproduces the "iPhone Duo" fold-transition effect on
- * a book-style foldable, using the hinge-angle sensor to drive an AGSL
- * shader.
+ * Live wallpaper that reproduces the fold-transition effect from the iPhone
+ * Duo web demo, dynamically adapted to whichever foldable device it runs on.
  *
- * READ THIS BEFORE DEBUGGING THE COVER SCREEN:
- * Android's own docs for [WallpaperService.Engine.getDisplayContext] state
- * that "for multiple display environment, multiple engines can be created
- * to render on each display" -- that documented (if under-specified)
- * mechanism is what [onSurfaceCreated] relies on below to tell the inner
- * display's engine apart from the outer/cover display's engine.
- *
- * What is NOT documented or guaranteed anywhere is that Samsung's One UI
- * actually routes a third-party live wallpaper's second Engine to the Z
- * Fold's physical cover screen. In practice this has been inconsistent
- * across One UI versions for other apps. Before you rely on it:
- *   1. Build and run this as-is.
- *   2. Set it as your wallpaper, fold the phone, and check `adb logcat -s
- *      DuoWallpaperService` for a second "Engine bound to displayId=..."
- *      line with outer=true.
- *   3. If you only ever see one engine, the outer-screen half of this
- *      effect will not run -- the inner display will still show a correct
- *      single-screen fold transition, it just won't drive the "window"
- *      effect on the cover screen. In that case, fall back to a foreground
- *      app using the Presentation API on the secondary Display (the
- *      approach in the original PoC thread), which does not depend on the
- *      wallpaper system routing anything for you.
+ * All device-specific geometry (hinge position, display sizes, perspective
+ * ratio) comes from [DeviceConfig], which auto-detects the running device
+ * or falls back to the Pixel 10 Pro Fold as the primary target.
  */
 class DuoWallpaperService : WallpaperService() {
 
     companion object {
         private const val TAG = "DuoWallpaperService"
 
-        // Recompute the smoothed fold value until it's within this many
-        // radians of the sensor target; below that, stop the per-frame
-        // loop entirely so an idle wallpaper doesn't keep re-drawing.
         private const val SETTLE_EPSILON = 0.0002f
         private const val LOW_PASS_ALPHA = 0.12f
+        private const val BLUR_DOWNSCALE = 4f
+
+        const val PREFS_NAME = "duo_wallpaper_prefs"
+        const val PREF_CUSTOM_IMAGE = "custom_image_path"
+        const val PREF_DEMO_MODE = "demo_mode"
+        const val CUSTOM_IMAGE_FILE = "custom_wallpaper.png"
     }
 
     override fun onCreateEngine(): Engine = DuoEngine()
 
-    private inner class DuoEngine : Engine(), SensorEventListener {
+    private inner class DuoEngine : Engine(), SensorEventListener,
+        SharedPreferences.OnSharedPreferenceChangeListener {
 
         private val choreographer = Choreographer.getInstance()
         private val runtimeShader = RuntimeShader(ShaderCode.DUO_SHADER)
         private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { shader = runtimeShader }
 
         private lateinit var sensorManager: SensorManager
+        private lateinit var prefs: SharedPreferences
+        private lateinit var deviceConfig: DeviceConfig
         private var hingeSensor: Sensor? = null
 
-        // 0 = fully open, PI = fully closed. displayedFold is low-pass
-        // smoothed toward targetFold (the latest raw sensor reading).
         private var displayedFold = 0f
         private var targetFold = 0f
 
         private var canvasWidth = 0f
         private var canvasHeight = 0f
-        private var imageWidth = 2670f
-        private var imageHeight = 1878f
+        private var imageWidth = 0f
+        private var imageHeight = 0f
 
         private var isOuterDisplay = false
         private var displayRoleResolved = false
         private var frameCallbackPosted = false
 
-        private val frameCallback = Choreographer.FrameCallback {
+        private var demoMode = false
+        private var demoPhase = 0f
+        private var lastFrameTimeNanos = 0L
+
+        private val frameCallback = Choreographer.FrameCallback { now ->
             frameCallbackPosted = false
             if (isVisible) {
-                drawFrame()
-                val stillMoving = abs(targetFold - displayedFold) > SETTLE_EPSILON
+                drawFrame(now)
+                val stillMoving = demoMode || abs(targetFold - displayedFold) > SETTLE_EPSILON
                 if (stillMoving) postFrameCallbackIfNeeded()
             }
         }
@@ -97,15 +88,19 @@ class DuoWallpaperService : WallpaperService() {
         override fun onCreate(surfaceHolder: SurfaceHolder) {
             super.onCreate(surfaceHolder)
 
-            val bitmap = loadWallpaperBitmap()
-            imageWidth = bitmap.width.toFloat()
-            imageHeight = bitmap.height.toFloat()
-            val bitmapShader = BitmapShader(bitmap, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP)
-            // Correct API: RuntimeShader.setInputShader(name, Shader).
-            // (There is no setInputBuffer(name, width, height, HardwareBuffer)
-            // overload, and no HardwareBuffer.createFromBitmap() factory --
-            // both were fabricated in an earlier draft of this code.)
-            runtimeShader.setInputShader("uImage", bitmapShader)
+            // ── Detect device geometry ─────────────────────────────
+            deviceConfig = DeviceConfig.detect(this@DuoWallpaperService)
+            Log.i(TAG, "Device config: $deviceConfig")
+
+            // Set the device-geometry uniforms (these don't change per frame)
+            runtimeShader.setFloatUniform("uHingePos", deviceConfig.hingeRatio)
+            runtimeShader.setFloatUniform("uEyeRatio", deviceConfig.perspectiveRatio)
+
+            prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+            prefs.registerOnSharedPreferenceChangeListener(this)
+            demoMode = prefs.getBoolean(PREF_DEMO_MODE, false)
+
+            loadAndBindWallpaper()
 
             sensorManager = getSystemService(SENSOR_SERVICE) as SensorManager
             hingeSensor = sensorManager.getDefaultSensor(Sensor.TYPE_HINGE_ANGLE)
@@ -114,18 +109,27 @@ class DuoWallpaperService : WallpaperService() {
             }
         }
 
+        private fun loadAndBindWallpaper() {
+            val bitmap = loadWallpaperBitmap()
+            imageWidth = bitmap.width.toFloat()
+            imageHeight = bitmap.height.toFloat()
+
+            val bitmapShader = BitmapShader(bitmap, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP)
+            runtimeShader.setInputShader("uImage", bitmapShader)
+
+            val blurW = (bitmap.width / BLUR_DOWNSCALE).toInt().coerceAtLeast(1)
+            val blurH = (bitmap.height / BLUR_DOWNSCALE).toInt().coerceAtLeast(1)
+            val blurBitmap = Bitmap.createScaledBitmap(bitmap, blurW, blurH, true)
+            val blurShader = BitmapShader(blurBitmap, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP)
+            runtimeShader.setInputShader("uImageBlur", blurShader)
+            runtimeShader.setFloatUniform("uBlurScale", BLUR_DOWNSCALE)
+        }
+
         override fun onSurfaceCreated(holder: SurfaceHolder) {
             super.onSurfaceCreated(holder)
             resolveDisplayRole()
         }
 
-        /**
-         * Determines whether this Engine instance is rendering the inner
-         * or the outer display, using the documented getDisplayContext()
-         * API (guaranteed non-null once onCreate() has run). The earlier
-         * draft tried to read a nonexistent `surface.surfaceControl` field
-         * for this -- that API doesn't exist on WallpaperService.Engine.
-         */
         private fun resolveDisplayRole() {
             val displayId = getDisplayContext()?.display?.displayId
             isOuterDisplay = displayId != null && displayId != Display.DEFAULT_DISPLAY
@@ -145,6 +149,7 @@ class DuoWallpaperService : WallpaperService() {
                 hingeSensor?.let {
                     sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_FASTEST)
                 }
+                lastFrameTimeNanos = System.nanoTime()
                 postFrameCallbackIfNeeded()
             } else {
                 sensorManager.unregisterListener(this)
@@ -160,18 +165,36 @@ class DuoWallpaperService : WallpaperService() {
 
         override fun onDestroy() {
             super.onDestroy()
+            prefs.unregisterOnSharedPreferenceChangeListener(this)
             sensorManager.unregisterListener(this)
             stopFrameLoop()
         }
 
         override fun onSensorChanged(event: SensorEvent) {
             if (event.sensor.type != Sensor.TYPE_HINGE_ANGLE) return
+            if (demoMode) return
             val degrees = event.values[0]
             targetFold = ((180.0 - degrees) * PI / 180.0).toFloat().coerceIn(0f, PI.toFloat())
             postFrameCallbackIfNeeded()
         }
 
         override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
+
+        override fun onSharedPreferenceChanged(prefs: SharedPreferences, key: String?) {
+            when (key) {
+                PREF_CUSTOM_IMAGE -> loadAndBindWallpaper()
+                PREF_DEMO_MODE -> {
+                    demoMode = prefs.getBoolean(PREF_DEMO_MODE, false)
+                    if (demoMode) {
+                        val currentDegrees = (180f - displayedFold * 180f / PI.toFloat())
+                            .coerceIn(0f, 180f)
+                        demoPhase = FoldMath.demoPhaseForAngle(currentDegrees)
+                        lastFrameTimeNanos = System.nanoTime()
+                    }
+                    postFrameCallbackIfNeeded()
+                }
+            }
+        }
 
         private fun postFrameCallbackIfNeeded() {
             if (!frameCallbackPosted && isVisible) {
@@ -185,45 +208,61 @@ class DuoWallpaperService : WallpaperService() {
             frameCallbackPosted = false
         }
 
-        private fun drawFrame() {
+        private fun drawFrame(nowNanos: Long) {
             if (!displayRoleResolved) resolveDisplayRole()
             if (canvasWidth <= 0f || canvasHeight <= 0f) return
 
-            displayedFold += (targetFold - displayedFold) * LOW_PASS_ALPHA
+            val deltaSec = min((nowNanos - lastFrameTimeNanos) / 1_000_000_000f, 0.05f)
+            lastFrameTimeNanos = nowNanos
+
+            if (demoMode) {
+                demoPhase = (demoPhase + deltaSec) % FoldMath.DEMO_CYCLE_DURATION
+                val degrees = FoldMath.demoAngleDegrees(demoPhase)
+                displayedFold = ((180f - degrees) * PI.toFloat() / 180f).coerceIn(0f, PI.toFloat())
+            } else {
+                displayedFold += (targetFold - displayedFold) * LOW_PASS_ALPHA
+            }
 
             val holder = surfaceHolder
             val canvas: Canvas = (holder.lockHardwareCanvas() ?: holder.lockCanvas()) ?: return
             try {
-                // Robust outer detection: either a secondary display or default display when folded / tall
-                val effectiveIsOuterDisplay = isOuterDisplay || 
+                // ── Determine display role ──────────────────────────
+                // On foldables with a single wallpaper engine, use aspect
+                // ratio as a heuristic: portrait-tall → outer/cover display.
+                val effectiveIsOuter = isOuterDisplay ||
                     (getDisplayContext()?.display?.displayId == Display.DEFAULT_DISPLAY &&
-                        (canvasHeight > canvasWidth * 1.5f || displayedFold > (PI.toFloat() / 2f)))
+                        canvasHeight > canvasWidth * 1.5f)
 
-                val progress = if (effectiveIsOuterDisplay) {
+                // ── Progress & motion ───────────────────────────────
+                val progress = if (effectiveIsOuter) {
                     ((PI.toFloat() - displayedFold) / (PI.toFloat() / 2f)).coerceIn(0f, 1f)
                 } else {
                     (displayedFold / (PI.toFloat() / 2f)).coerceIn(0f, 1f)
                 }
                 val motion = FoldMath.smoothstep(progress)
-                val radiusMax = 72.0f * (imageWidth / 1600.0f)
 
+                // ── Per-frame shader uniforms (all dynamic) ─────────
                 runtimeShader.setFloatUniform("uPixel", 1f / imageWidth, 1f / imageHeight)
                 runtimeShader.setFloatUniform("uMotion", motion)
-                runtimeShader.setFloatUniform("uRadiusMax", radiusMax)
+                runtimeShader.setFloatUniform("uRadiusMax", deviceConfig.maxBlurRadius)
 
-                if (effectiveIsOuterDisplay) {
-                    val anchorX = FoldMath.anchorX(displayedFold)
-                    val originX = (anchorX - FoldMath.INNER_FRAME_X) / FoldMath.INNER_FRAME_Z
-                    val scaleX = FoldMath.OUTER_FRAME_Z / FoldMath.INNER_FRAME_Z
+                if (effectiveIsOuter) {
+                    // Outer/cover display: show the right portion of the
+                    // wallpaper, anchored at the hinge edge.
+                    val offsetX = FoldMath.outerUvOffsetX(displayedFold, deviceConfig)
+                    val scaleX = deviceConfig.coverToInnerRatio
 
-                    runtimeShader.setFloatUniform("uUvOffset", originX, 0f)
+                    runtimeShader.setFloatUniform("uUvOffset", offsetX, 0f)
                     runtimeShader.setFloatUniform("uUvScale", scaleX / canvasWidth, 1f / canvasHeight)
-                    runtimeShader.setFloatUniform("uGrad", originX, originX + scaleX)
+                    // Gradient sweeps from hinge edge toward the right edge
+                    runtimeShader.setFloatUniform("uGrad", offsetX, offsetX + scaleX)
                     runtimeShader.setFloatUniform("uFold", 0f)
                 } else {
+                    // Inner display: full wallpaper, gradient sweeps from
+                    // hinge toward the left edge.
                     runtimeShader.setFloatUniform("uUvOffset", 0f, 0f)
                     runtimeShader.setFloatUniform("uUvScale", 1f / canvasWidth, 1f / canvasHeight)
-                    runtimeShader.setFloatUniform("uGrad", 0.5f, 0.0f)
+                    runtimeShader.setFloatUniform("uGrad", deviceConfig.hingeRatio, 0f)
                     runtimeShader.setFloatUniform("uFold", displayedFold)
                 }
 
@@ -235,28 +274,28 @@ class DuoWallpaperService : WallpaperService() {
             }
         }
 
-        /**
-         * Loads the canonical wallpaper image from res/drawable-nodpi/wallpaper.png
-         * (drawable-nodpi is deliberate: putting it in a density bucket would
-         * let Android rescale it on load, which would throw off every pixel
-         * measurement the shader math above depends on). A generated
-         * placeholder ships in that slot -- replace it with your own asset,
-         * recommended size 2670x1878 to match the frame math ported from the
-         * web demo.
-         */
         private fun loadWallpaperBitmap(): Bitmap {
+            val customFile = File(filesDir, CUSTOM_IMAGE_FILE)
+            if (customFile.exists()) {
+                val opts = BitmapFactory.Options().apply { inScaled = false }
+                BitmapFactory.decodeFile(customFile.absolutePath, opts)?.let {
+                    Log.d(TAG, "Loaded custom wallpaper: ${it.width}×${it.height}")
+                    return it
+                }
+            }
             val resId = resources.getIdentifier("wallpaper", "drawable", packageName)
             if (resId != 0) {
                 val opts = BitmapFactory.Options().apply { inScaled = false }
                 BitmapFactory.decodeResource(resources, resId, opts)?.let { return it }
             }
-            Log.w(TAG, "res/drawable-nodpi/wallpaper.png not found, using generated fallback")
+            Log.w(TAG, "No wallpaper found, using generated fallback")
             return createFallbackBitmap()
         }
 
         private fun createFallbackBitmap(): Bitmap {
-            val w = 2670
-            val h = 1878
+            // Size based on actual device inner display
+            val w = deviceConfig.innerWidthPx
+            val h = deviceConfig.innerHeightPx
             val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
             val c = Canvas(bmp)
             val gradient = LinearGradient(

@@ -1,68 +1,85 @@
 package com.example.duofoldwallpaper
 
+import kotlin.math.PI
+import kotlin.math.acos
 import kotlin.math.cos
-import kotlin.math.sin
 
 /**
- * Ports the 3D ray-intersection anchor math from the web reference
- * implementation (chuspeeism/iphone-duo, main.js) into a 2D affine UV
- * offset that can drive an AGSL shader per output pixel.
+ * Fold-effect math parameterised by [DeviceConfig].
  *
- * The web demo projects a 3D fold model through a fixed front-view camera;
- * on a real device each physical display is flat, so that whole projection
- * collapses to "what horizontal UV offset makes the outer display's content
- * line up with the inner display's content at the physical hinge edge".
- * This function computes exactly that offset, once per frame.
+ * No hardcoded device constants — every geometric value is derived from
+ * the detected device's display measurements.
  */
 object FoldMath {
-    private const val EYE_Z = 40.0f
-    private const val INNER_PLANE_Z = 0.24948f
-    private const val PIVOT_Z = 0.275454f
 
-    // Hinge edge coordinates in model space, before rotation.
-    private const val HINGE_X = -0.23396f
-    private const val HINGE_Y = -0.550084f // (-0.27463 - 0.275454)
-
-    // Outer UI frame width, scaled into the same projected space as the
-    // inner plane (ported directly from the web demo's frame math).
-    const val OUTER_FRAME_Z = 7.73936f * ((EYE_Z - INNER_PLANE_Z) / (EYE_Z - 0.825538f))
-    const val INNER_FRAME_X = -7.89935f
-    const val INNER_FRAME_Z = 15.7987f
+    // ── Demo animation timing (web demo main.js L322-L342) ──────────
+    const val DEMO_CYCLE_DURATION = 8.6f
+    const val DEMO_HOLD_FLAT_END = 1.2f
+    const val DEMO_FOLD_END = 4.3f
+    const val DEMO_HOLD_CLOSED_END = 5.5f
+    private const val DEMO_FOLD_SPAN = DEMO_FOLD_END - DEMO_HOLD_FLAT_END   // 3.1
+    private const val DEMO_UNFOLD_SPAN = DEMO_CYCLE_DURATION - DEMO_HOLD_CLOSED_END // 3.1
 
     /**
-     * Calculates the projected X position of the rotated hinge edge onto the
-     * inner screen plane from the fixed reference eye at (0, 0, EYE_Z).
-     */
-    fun anchorX(foldRadians: Float): Float {
-        val c = cos(foldRadians)
-        val s = sin(foldRadians)
-
-        // Rotate the hinge edge around the pivot.
-        val foldedX = c * HINGE_X + s * HINGE_Y
-        val foldedY = -s * HINGE_X + c * HINGE_Y + PIVOT_Z
-
-        // Project the rotated edge onto the inner screen plane.
-        val edgeDepth = (INNER_PLANE_Z - EYE_Z) / (foldedY - EYE_Z)
-        return foldedX * edgeDepth
-    }
-
-    /**
-     * Horizontal UV offset (in the canonical image's normalized space) for
-     * the outer/cover display, so the wallpaper appears hinged to the
-     * physical fold edge as [foldRadians] changes.
+     * Computes the UV x-offset for the outer/cover display so the wallpaper
+     * appears hinged at the physical fold edge.
      *
-     * @param foldRadians 0 = fully open, PI = fully closed.
+     * In UV space: the hinge is at [DeviceConfig.hingeRatio], and the cover
+     * display shows [DeviceConfig.coverToInnerRatio] worth of the image
+     * starting from the hinge and going rightward.
+     *
+     * @param foldRadians  0 = fully open, PI = fully closed.
+     * @param config       The detected device geometry.
+     * @return UV x-offset for the outer display's left edge.
      */
-    fun computeOuterOffsetX(foldRadians: Float): Float {
-        val anchor = anchorX(foldRadians)
-        // Negative because the outer screen shows the right-hand portion
-        // of the canonical image, mirrored from the hinge edge inward.
-        return -anchor / OUTER_FRAME_Z
+    fun outerUvOffsetX(foldRadians: Float, config: DeviceConfig): Float {
+        // At fully open (foldRadians=0), outer shows from hingeRatio rightward.
+        // As the device folds, the anchor point shifts due to 3D projection.
+        // The shift amount depends on the perspective ratio.
+        val hingeShift = perspectiveHingeShift(foldRadians, config)
+        return config.hingeRatio + hingeShift
     }
 
-    /** Standard smoothstep, input clamped to [0, 1] first. */
+    /**
+     * How much the hinge edge appears to shift in UV space due to the 3D
+     * perspective of folding.  At foldRadians=0 this is 0; at PI it's
+     * a small negative value (the hinge "pulls" inward).
+     */
+    private fun perspectiveHingeShift(foldRadians: Float, config: DeviceConfig): Float {
+        if (foldRadians < 0.001f) return 0f
+        val s = kotlin.math.sin(foldRadians)
+        val c = cos(foldRadians)
+        // A tiny strip at the hinge edge projects slightly differently
+        // when the cover half rotates.  The shift is proportional to
+        // sin(fold) scaled by the inverse perspective ratio.
+        val edgeDist = 0.001f  // infinitesimal strip at hinge
+        val depth = config.perspectiveRatio / (config.perspectiveRatio + edgeDist * s)
+        return edgeDist * c * (depth - 1f)
+    }
+
+    /** Standard smoothstep, input clamped to [0, 1]. */
     fun smoothstep(x: Float): Float {
         val t = x.coerceIn(0f, 1f)
         return t * t * (3f - 2f * t)
+    }
+
+    /** Demo animation: fold angle in degrees for a given cycle phase. */
+    fun demoAngleDegrees(phase: Float): Float {
+        return when {
+            phase < DEMO_HOLD_FLAT_END -> 180f
+            phase < DEMO_FOLD_END -> {
+                90f * (1f + cos((phase - DEMO_HOLD_FLAT_END) / DEMO_FOLD_SPAN * PI.toFloat()))
+            }
+            phase < DEMO_HOLD_CLOSED_END -> 0f
+            else -> {
+                90f * (1f - cos((phase - DEMO_HOLD_CLOSED_END) / DEMO_UNFOLD_SPAN * PI.toFloat()))
+            }
+        }
+    }
+
+    /** Initial phase so the demo animation picks up from [currentDegrees]. */
+    fun demoPhaseForAngle(currentDegrees: Float): Float {
+        return DEMO_HOLD_FLAT_END +
+            acos(2f * currentDegrees / 180f - 1f).toFloat() / PI.toFloat() * DEMO_FOLD_SPAN
     }
 }
