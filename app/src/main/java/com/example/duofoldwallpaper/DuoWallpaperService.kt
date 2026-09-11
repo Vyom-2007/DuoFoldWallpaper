@@ -194,10 +194,10 @@ class DuoWallpaperService : WallpaperService() {
             val holder = surfaceHolder
             val canvas: Canvas = (holder.lockHardwareCanvas() ?: holder.lockCanvas()) ?: return
             try {
-                // For devices (like the emulator) that use a single display ID across both
-                // inner and outer modes, we can accurately detect the cover screen by its tall aspect ratio.
+                // Robust outer detection: either a secondary display or default display when folded / tall
                 val effectiveIsOuterDisplay = isOuterDisplay || 
-                    (getDisplayContext()?.display?.displayId == Display.DEFAULT_DISPLAY && canvasHeight > canvasWidth * 1.2f)
+                    (getDisplayContext()?.display?.displayId == Display.DEFAULT_DISPLAY &&
+                        (canvasHeight > canvasWidth * 1.5f || displayedFold > (PI.toFloat() / 2f)))
 
                 val progress = if (effectiveIsOuterDisplay) {
                     ((PI.toFloat() - displayedFold) / (PI.toFloat() / 2f)).coerceIn(0f, 1f)
@@ -205,17 +205,27 @@ class DuoWallpaperService : WallpaperService() {
                     (displayedFold / (PI.toFloat() / 2f)).coerceIn(0f, 1f)
                 }
                 val motion = FoldMath.smoothstep(progress)
-                val uvOffsetX = if (effectiveIsOuterDisplay) FoldMath.computeOuterOffsetX(displayedFold) else 0f
+                val radiusMax = 72.0f * (imageWidth / 1600.0f)
 
-                runtimeShader.setFloatUniform("uUvOffset", uvOffsetX, 0f)
-                runtimeShader.setFloatUniform("uUvScale", 1f / canvasWidth, 1f / canvasHeight)
                 runtimeShader.setFloatUniform("uPixel", 1f / imageWidth, 1f / imageHeight)
-                runtimeShader.setFloatUniform(
-                    "uGrad",
-                    if (!effectiveIsOuterDisplay) 0.5f else 0.0f,
-                    if (!effectiveIsOuterDisplay) 0.0f else 1.0f
-                )
                 runtimeShader.setFloatUniform("uMotion", motion)
+                runtimeShader.setFloatUniform("uRadiusMax", radiusMax)
+
+                if (effectiveIsOuterDisplay) {
+                    val anchorX = FoldMath.anchorX(displayedFold)
+                    val originX = (anchorX - FoldMath.INNER_FRAME_X) / FoldMath.INNER_FRAME_Z
+                    val scaleX = FoldMath.OUTER_FRAME_Z / FoldMath.INNER_FRAME_Z
+
+                    runtimeShader.setFloatUniform("uUvOffset", originX, 0f)
+                    runtimeShader.setFloatUniform("uUvScale", scaleX / canvasWidth, 1f / canvasHeight)
+                    runtimeShader.setFloatUniform("uGrad", originX, originX + scaleX)
+                    runtimeShader.setFloatUniform("uFold", 0f)
+                } else {
+                    runtimeShader.setFloatUniform("uUvOffset", 0f, 0f)
+                    runtimeShader.setFloatUniform("uUvScale", 1f / canvasWidth, 1f / canvasHeight)
+                    runtimeShader.setFloatUniform("uGrad", 0.5f, 0.0f)
+                    runtimeShader.setFloatUniform("uFold", displayedFold)
+                }
 
                 canvas.drawRect(0f, 0f, canvasWidth, canvasHeight, paint)
             } catch (t: Throwable) {

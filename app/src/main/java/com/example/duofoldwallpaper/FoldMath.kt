@@ -25,7 +25,26 @@ object FoldMath {
 
     // Outer UI frame width, scaled into the same projected space as the
     // inner plane (ported directly from the web demo's frame math).
-    private const val OUTER_FRAME_Z = 7.73936f * ((EYE_Z - INNER_PLANE_Z) / (EYE_Z - 0.825538f))
+    const val OUTER_FRAME_Z = 7.73936f * ((EYE_Z - INNER_PLANE_Z) / (EYE_Z - 0.825538f))
+    const val INNER_FRAME_X = -7.89935f
+    const val INNER_FRAME_Z = 15.7987f
+
+    /**
+     * Calculates the projected X position of the rotated hinge edge onto the
+     * inner screen plane from the fixed reference eye at (0, 0, EYE_Z).
+     */
+    fun anchorX(foldRadians: Float): Float {
+        val c = cos(foldRadians)
+        val s = sin(foldRadians)
+
+        // Rotate the hinge edge around the pivot.
+        val foldedX = c * HINGE_X + s * HINGE_Y
+        val foldedY = -s * HINGE_X + c * HINGE_Y + PIVOT_Z
+
+        // Project the rotated edge onto the inner screen plane.
+        val edgeDepth = (INNER_PLANE_Z - EYE_Z) / (foldedY - EYE_Z)
+        return foldedX * edgeDepth
+    }
 
     /**
      * Horizontal UV offset (in the canonical image's normalized space) for
@@ -35,21 +54,10 @@ object FoldMath {
      * @param foldRadians 0 = fully open, PI = fully closed.
      */
     fun computeOuterOffsetX(foldRadians: Float): Float {
-        val c = cos(foldRadians)
-        val s = sin(foldRadians)
-
-        // Rotate the hinge edge around the pivot.
-        val foldedX = c * HINGE_X + s * HINGE_Y
-        val foldedY = -s * HINGE_X + c * HINGE_Y + PIVOT_Z
-
-        // Project the rotated edge onto the inner screen plane from the
-        // fixed reference eye at (0, 0, EYE_Z).
-        val edgeDepth = (INNER_PLANE_Z - EYE_Z) / (foldedY - EYE_Z)
-        val anchorX = foldedX * edgeDepth
-
+        val anchor = anchorX(foldRadians)
         // Negative because the outer screen shows the right-hand portion
         // of the canonical image, mirrored from the hinge edge inward.
-        return -anchorX / OUTER_FRAME_Z
+        return -anchor / OUTER_FRAME_Z
     }
 
     /** Standard smoothstep, input clamped to [0, 1] first. */
