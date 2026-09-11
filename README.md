@@ -1,11 +1,11 @@
 # Duo Fold Wallpaper
 
-[![Build](https://github.com/DJ-vekariya/android_transition_animations-/actions/workflows/build.yml/badge.svg)](https://github.com/DJ-vekariya/android_transition_animations-/actions)
-[![Release](https://img.shields.io/github/v/release/DJ-vekariya/android_transition_animations-)](https://github.com/DJ-vekariya/android_transition_animations-/releases)
+[![Build](https://github.com/Vyom-2007/DuoFoldWallpaper/actions/workflows/build.yml/badge.svg)](https://github.com/Vyom-2007/DuoFoldWallpaper/actions)
+[![Release](https://img.shields.io/github/v/release/Vyom-2007/DuoFoldWallpaper)](https://github.com/Vyom-2007/DuoFoldWallpaper/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![minSdk](https://img.shields.io/badge/minSdk-33-3DDC84)](https://android-arsenal.com/api?level=33)
 [![Target](https://img.shields.io/badge/Foldable-Ready-purple.svg)](https://developer.android.com/guide/topics/ui/foldables)
-[![Live Showcase](https://img.shields.io/badge/showcase-0°–180°-blue)](https://dj-vekariya.github.io/android_transition_animations-/)
+[![Live Showcase](https://img.shields.io/badge/showcase-0°–180°-blue)](https://vyom-2007.github.io/DuoFoldWallpaper/)
 
 ![Pixel 10 Pro Fold Live Wallpaper Demo](docs/pixel_fold_hero.png)
 
@@ -21,7 +21,7 @@ Powered by `Sensor.TYPE_HINGE_ANGLE` and a hardware-accelerated **AGSL (Android 
 
 Don't have a foldable nearby? Scrub through the fold transition in your browser with our interactive 0°→180° viewer:
 
-### [👉 Launch Interactive 0° to 180° Angle Showcase](https://dj-vekariya.github.io/android_transition_animations-/)
+### [👉 Launch Interactive 0° to 180° Angle Showcase](https://vyom-2007.github.io/DuoFoldWallpaper/)
 
 *(Also available locally in [`docs/index.html`](docs/index.html) or [`DuoFold_Showcase.html`](DuoFold_Showcase.html)).*
 
@@ -101,13 +101,13 @@ D DuoWallpaperService: Engine bound to displayId=1 outer=true
 - Android SDK 35 (Minimum API 33 required for AGSL `RuntimeShader`)
 
 ### Pre-Built APK
-Download the latest APK from [Releases](https://github.com/DJ-vekariya/android_transition_animations-/releases) and sideload directly to your device.
+Download the latest APK from [Releases](https://github.com/Vyom-2007/DuoFoldWallpaper/releases) and sideload directly to your device.
 
 ### Compile from Source
 ```bash
 # Clone the repository
-git clone https://github.com/DJ-vekariya/android_transition_animations-.git
-cd android_transition_animations-
+git clone https://github.com/Vyom-2007/DuoFoldWallpaper.git
+cd DuoFoldWallpaper
 
 # Build debug APK
 ./gradlew assembleDebug

@@ -16,8 +16,8 @@ Thank you for your interest in contributing to **Duo Fold Wallpaper**! We welcom
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/DJ-vekariya/android_transition_animations-.git
-   cd android_transition_animations-
+   git clone https://github.com/Vyom-2007/DuoFoldWallpaper.git
+   cd DuoFoldWallpaper
    ```
 2. Build the debug APK using Gradle wrapper:
    ```bash
@@ -70,7 +70,7 @@ You do not need a physical foldable to contribute! You can drive the fold animat
 
 ## How to Pick an Issue & Submit a PR
 
-1. Browse open issues with the [`good first issue`](https://github.com/DJ-vekariya/android_transition_animations-/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) tag.
+1. Browse open issues with the [`good first issue`](https://github.com/Vyom-2007/DuoFoldWallpaper/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) tag.
 2. Comment on the issue to let others know you are working on it.
 3. Create a descriptive branch for your work:
    ```bash
