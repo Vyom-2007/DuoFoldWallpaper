@@ -7,9 +7,7 @@
 [![Target](https://img.shields.io/badge/Foldable-Ready-purple.svg)](https://developer.android.com/guide/topics/ui/foldables)
 [![Live Showcase](https://img.shields.io/badge/showcase-0°–180°-blue)](https://dj-vekariya.github.io/android_transition_animations-/)
 
-<p align="center">
-  <img src="docs/social_preview.jpg" alt="Duo Fold Wallpaper Hero Preview" width="100%" />
-</p>
+![Pixel 10 Pro Fold Live Wallpaper Demo](docs/pixel_fold_hero.png)
 
 > **"Apple spent 7 years and $1,999 on this fold animation. I put it on Android as an open-source live wallpaper."**
 
@@ -29,12 +27,12 @@ Don't have a foldable nearby? Scrub through the fold transition in your browser 
 
 ---
 
-## 📸 Visual Transition Stages
+## 📸 Real Pixel 10 Pro Fold Emulator Captures
 
 | 0° — Cover Screen Window | 90° — Tabletop Compression & Blur | 180° — Flat Unfolded Landscape |
 |:---:|:---:|:---:|
-| ![0 Degrees Cover Display](docs/screenshots/angle_0deg.png) | ![90 Degrees Tabletop Seam](docs/screenshots/angle_90deg.png) | ![180 Degrees Flat Display](docs/screenshots/angle_180deg.png) |
-| *Outer screen acts as a "window" anchored at the fold.* | *Left panel recedes with ray-plane warp & 25-tap blur.* | *Seamless, crystal-clear 1:1 wallpaper alignment.* |
+| ![0 Degrees Cover Display](docs/screenshots/pixel_0.png) | ![90 Degrees Tabletop Seam](docs/screenshots/pixel_90.png) | ![180 Degrees Flat Display](docs/screenshots/pixel_180.png) |
+| *Outer cover display acts as a "window" anchored at the fold.* | *Left panel recedes with ray-plane warp & 25-tap progressive blur.* | *Seamless, crystal-clear 1:1 wallpaper alignment across both panels.* |
 
 ---
 
