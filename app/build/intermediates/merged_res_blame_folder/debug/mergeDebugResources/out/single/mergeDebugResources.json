@@ -1,0 +1,18 @@
+[
+    {
+        "merged": "C:\\Users\\devve\\.gradle\\daemon\\8.13\\com.example.duofoldwallpaper.app-debug-4:\\drawable-nodpi_wallpaper.png.flat",
+        "source": "C:\\Users\\devve\\.gradle\\daemon\\8.13\\com.example.duofoldwallpaper.app-main-6:\\drawable-nodpi\\wallpaper.png"
+    },
+    {
+        "merged": "C:\\Users\\devve\\.gradle\\daemon\\8.13\\com.example.duofoldwallpaper.app-debug-4:\\drawable_ic_launcher.xml.flat",
+        "source": "C:\\Users\\devve\\.gradle\\daemon\\8.13\\com.example.duofoldwallpaper.app-main-6:\\drawable\\ic_launcher.xml"
+    },
+    {
+        "merged": "C:\\Users\\devve\\.gradle\\daemon\\8.13\\com.example.duofoldwallpaper.app-debug-4:\\xml_wallpaper.xml.flat",
+        "source": "C:\\Users\\devve\\.gradle\\daemon\\8.13\\com.example.duofoldwallpaper.app-main-6:\\xml\\wallpaper.xml"
+    },
+    {
+        "merged": "com.example.duofoldwallpaper.app-debug-4:/drawable-nodpi_wallpaper.jpg.flat",
+        "source": "com.example.duofoldwallpaper.app-main-6:/drawable-nodpi/wallpaper.jpg"
+    }
+]

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Duo Fold Wallpaper</string>
+    <string name="main_instructions">Tap below to open the system wallpaper picker, then choose this app under Live Wallpapers. Fold your Z Fold 8 to see the transition. See README.md for the cover-screen caveat before you spend time debugging it.</string>
+    <string name="picker_unavailable">No live wallpaper picker found on this device</string>
+    <string name="set_wallpaper_button">Set as Live Wallpaper</string>
+    <style name="Theme.DuoFoldWallpaper" parent="Theme.AppCompat.Light.NoActionBar"/>
+</resources>
