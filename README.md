@@ -7,6 +7,10 @@
 [![Target](https://img.shields.io/badge/Foldable-Ready-purple.svg)](https://developer.android.com/guide/topics/ui/foldables)
 [![Live Showcase](https://img.shields.io/badge/showcase-0°–180°-blue)](https://dj-vekariya.github.io/android_transition_animations-/)
 
+<p align="center">
+  <img src="docs/social_preview.jpg" alt="Duo Fold Wallpaper Hero Preview" width="100%" />
+</p>
+
 > **"Apple spent 7 years and $1,999 on this fold animation. I put it on Android as an open-source live wallpaper."**
 
 An open-source Android live wallpaper that ports the viral **iPhone Duo fold-transition effect** (hinge-anchored ray-plane perspective compression, progressive blur, and cover-display window projection) to Android foldables (Google Pixel Fold / 9 Pro Fold / 10 Pro Fold, Samsung Galaxy Z Fold series, and more).
